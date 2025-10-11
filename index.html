@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Admin Panel</title>
+
+    <link rel="manifest" href="/pwa-admin/manifest.json">
+    <meta name="theme-color" content="#6D28D9">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --primary-color: #8B5CF6; --primary-dark: #6D28D9;
+            --bg-color: #111827; --border-color: rgba(255, 255, 255, 0.2);
+            --text-light: #F9FAFB; --text-medium: #9CA3AF; --text-dark: #1F2937;
+            --danger-color: #F87171; --danger-dark: #EF4444;
+            --glass-bg: rgba(31, 41, 55, 0.6);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --glass-blur: 10px;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overflow: hidden; }
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-light);
+            background-color: var(--bg-color);
+            background-image: linear-gradient(135deg, #1e3a8a 0%, #311b92 100%);
+            background-attachment: fixed;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hidden { display: none !important; }
+        .sidebar nav {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .glass-effect {
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--glass-shadow);
+        }
+        #supabase-login-container {
+            max-width: 400px; margin: 15vh auto; padding: 40px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        #supabase-login-container h2 { text-align: center; margin-bottom: 30px; font-weight: 700; font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        #supabase-login-form label { font-weight: 500; margin-bottom: 8px; display: block; color: var(--text-medium); }
+        #supabase-login-form input {
+            width: 100%; padding: 12px 15px; margin-bottom: 20px;
+            background-color: rgba(0,0,0,0.2); border: 1px solid var(--border-color);
+            border-radius: 8px; color: var(--text-light); transition: all 0.2s ease;
+        }
+        #supabase-login-form input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.4); outline: none;
+        }
+        #supabase-login-form button {
+            width: 100%; padding: 14px; background: linear-gradient(to right, var(--primary-color), var(--primary-dark));
+            color: #fff; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 1.1rem; font-weight: 600; transition: transform 0.2s ease;
+        }
+        #supabase-login-form button:hover { transform: translateY(-2px); }
+        #dashboard-container { display: flex; height: 100%; animation: fadeIn 0.5s ease-out; }
+        .sidebar {
+            width: 260px; display: flex; flex-direction: column;
+            padding: 20px; margin: 10px; flex-shrink: 0; z-index: 100;
+        }
+        .sidebar-header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 30px; }
+        .nav-button {
+            position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 15px;
+            cursor: pointer; border: none; background: transparent; font-weight: 600; font-size: 1rem;
+            color: var(--text-medium); border-radius: 8px; width: 100%; text-align: left;
+            transition: all 0.2s ease; margin-bottom: 5px;
+        }
+        .nav-button i { font-size: 1.5rem; }
+        .nav-button:hover { background-color: rgba(255,255,255,0.1); color: var(--text-light); }
+        .nav-button.active { background-color: var(--primary-color); color: var(--text-light); }
+        .sidebar-footer { margin-top: auto; }
+        #logout-button { background-color: rgba(239, 68, 68, 0.2); color: var(--danger-color); }
+        #logout-button:hover { background-color: rgba(239, 68, 68, 0.4); }
+        .nav-button.has-unread::after {
+            content: ''; position: absolute; top: 10px; right: 15px; width: 10px; height: 10px;
+            background-color: var(--danger-dark); border-radius: 50%;
+            border: 2px solid var(--glass-bg); animation: pulse-dot 1.5s infinite;
+        }
+        .nav-button.active.has-unread::after { border-color: var(--primary-color); }
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .content-section { display: none; height: 100%; }
+        .content-section.active { display: flex; animation: fadeIn 0.3s ease-out; }
+        #chat-section.active { flex-direction: row; }
+        .conversations-panel {
+            width: 320px; margin: 10px 0 10px 10px;
+            display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .conv-header {
+            padding: 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+            display: flex; align-items: center; gap: 15px;
+        }
+        .conv-header h2 { margin: 0; }
+        #conversations-list { list-style: none; overflow-y: auto; flex-grow: 1; padding: 8px; }
+        .conversation-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; cursor: pointer;
+            border-radius: 8px; margin-bottom: 5px; transition: background-color 0.2s; position: relative;
+        }
+        .conversation-item .actions {
+            display: flex; align-items: center;
+        }
+        .conversation-item:hover { background-color: rgba(255,255,255,0.1); }
+        .conversation-item.active { background-color: var(--primary-color); color: var(--text-light); }
+        .conversation-item .conv-name { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; }
+        .delete-chat-btn {
+            background: none; border: none; color: var(--text-medium); cursor: pointer;
+            font-size: 1.2rem; margin-left: 10px; opacity: 0; transition: opacity 0.2s, color 0.2s;
+        }
+        .conversation-item:hover .delete-chat-btn { opacity: 1; }
+        .delete-chat-btn:hover { color: var(--danger-color); }
+        .unread-badge {
+            background-color: var(--danger-dark); color: white; font-size: 0.75rem; font-weight: 700;
+            border-radius: 50%; min-width: 24px; height: 24px; display: flex; justify-content: center; align-items: center;
+            flex-shrink: 0; padding: 0 5px; margin-left: 10px;
+        }
+        #chat-windows-container { position: relative; flex-grow: 1; overflow: hidden; padding: 10px; }
+        .chat-window {
+            position: absolute; top: 20px; left: 20px; width: 450px; height: 600px;
+            display: flex; flex-direction: column; resize: both; overflow: auto;
+            min-width: 320px; min-height: 400px;
+        }
+        .chat-window-header {
+            padding: 10px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600;
+            cursor: move; display: flex; justify-content: space-between; align-items: center;
+        }
+        .chat-header-title { display: flex; align-items: center; gap: 8px; }
+        .rename-chat-btn { background: none; border: none; color: var(--text-medium); cursor: pointer; font-size: 1.1rem; transition: color 0.2s; }
+        .rename-chat-btn:hover { color: var(--text-light); }
+        .chat-identifier-input {
+            background: rgba(0,0,0,0.3); border: 1px solid var(--primary-color);
+            color: var(--text-light); border-radius: 5px; padding: 2px 5px;
+            font-family: inherit; font-size: inherit; font-weight: inherit;
+        }
+        .chat-window-header .close-btn { cursor: pointer; font-size: 1.2rem; background: none; border: none; color: var(--text-medium); }
+        .chat-window-header .close-btn:hover { color: var(--text-light); }
+        .messages-container { flex-grow: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .message-row { display: flex; align-items: flex-end; gap: 10px; max-width: 85%; animation: fadeIn 0.4s ease-out; }
+        .message-row.admin { align-self: flex-end; flex-direction: row-reverse; }
+        .avatar {
+            width: 32px; height: 32px; border-radius: 50%; font-weight: 600; flex-shrink: 0;
+            display: flex; justify-content: center; align-items: center; font-size: 0.9rem;
+        }
+        .avatar.admin { background-color: var(--primary-color); color: var(--text-light); }
+        .avatar.user { background-color: #374151; color: var(--text-light); }
+        .message-bubble { padding: 10px 15px; border-radius: 18px; word-wrap: break-word; }
+        .message-bubble.user { background-color: #374151; border-radius: 18px 18px 18px 5px; }
+        .message-bubble.admin { background: linear-gradient(to right, var(--primary-color), var(--primary-dark)); border-radius: 18px 18px 5px 18px; }
+        .message-bubble img { max-width: 100%; border-radius: 12px; cursor: pointer; margin-top: 5px; }
+        .timestamp { font-size: 0.75rem; color: var(--text-medium); margin-top: 5px; text-align: right; }
+        .message-bubble.admin .timestamp { color: rgba(255, 255, 255, 0.7); }
+        .chat-input-area {
+            padding: 10px 15px; border-top: 1px solid var(--border-color);
+            display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+        }
+        .chat-input-area input {
+            flex-grow: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);
+            border-radius: 20px; padding: 8px 15px; color: var(--text-light); outline: none;
+        }
+        .chat-button { background: none; border: none; color: var(--text-medium); font-size: 1.5rem; cursor: pointer; transition: color 0.2s; }
+        .chat-button:hover { color: var(--primary-color); }
+        .spinner { width: 20px; height: 20px; border: 3px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        .submissions-page { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .submissions-header {
+            padding: 20px 30px; border-bottom: 1px solid var(--border-color);
+            background-color: var(--glass-bg); flex-shrink: 0;
+            display: flex; align-items: center; gap: 10px; margin: 10px; border-radius: 16px;
+        }
+        .submissions-header h2 { margin: 0; font-size: 1.5rem; }
+        .cards-container {
+            overflow-y: auto; padding: 20px; display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px; flex-grow: 1;
+        }
+        .submission-card { padding: 20px; display: flex; flex-direction: column; animation: fadeIn 0.4s ease-out; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
+        .card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+        .card-body p { margin: 0 0 10px; word-break: break-word; }
+        .card-body p > strong { color: var(--text-medium); }
+        .card-footer { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
+        .card-button { background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: var(--text-light); padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+        .delete-button:hover { background-color: var(--danger-dark); }
+        #image-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); cursor: pointer; animation: fadeIn 0.3s; }
+        #image-modal img { max-width: 90%; max-height: 90%; box-shadow: 0 0 40px rgba(0,0,0,0.5); border-radius: 8px; }
+        .mobile-menu-button, .mobile-back-button { display: none; background: none; border: none; cursor: pointer; padding: 0; font-size: 1.8rem; color: var(--text-light); }
+        @media (max-width: 1024px) {
+            .sidebar { width: 220px; }
+            .conversations-panel { width: 280px; }
+        }
+        @media (max-width: 768px) {
+            body { overflow: auto; }
+            #dashboard-container { flex-direction: column; height: auto; }
+            .sidebar {
+                position: fixed; top: 0; left: 0; height: 100%; z-index: 1001;
+                transform: translateX(-100%); transition: transform 0.3s ease;
+                margin: 0; border-radius: 0 16px 16px 0;
+                padding: 15px;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .mobile-menu-button { display: block; }
+            .main-content { padding: 0; }
+            #chat-section.active { flex-direction: column; }
+            .conversations-panel {
+                width: 100%; margin: 0; border-radius: 0; height: 100vh;
+                border-right: none;
+            }
+            #chat-windows-container { display: none; }
+            .chat-area-mobile {
+                display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                z-index: 1002; background: var(--bg-color); flex-direction: column;
+            }
+            .chat-area-mobile.open { display: flex; }
+            .mobile-back-button { display: block; }
+            .submissions-header, .cards-container { margin: 0; padding: 15px; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="supabase-login-container" class="glass-effect">
+        <h2><i class="ph-fill ph-chats-teardrop"></i> Admin Panel</h2>
+        <form id="supabase-login-form">
+            <p><label for="supabase_email">Email</label><input type="email" id="supabase_email" name="email" required></p>
+            <p><label for="supabase_password">Password</label><input type="password" id="supabase_password" name="password" required></p>
+            <p><button type="submit">Log In</button></p>
+        </form>
+    </div>
+
+    <div id="dashboard-container" class="hidden">
+        <aside class="sidebar glass-effect">
+            <div class="sidebar-header"><h1>Dashboard</h1></div>
+            <nav>
+                <button id="nav-chat" class="nav-button active"><i class="ph-fill ph-chats-circle"></i> <span>Live Chat</span></button>
+                <button id="nav-contacts" class="nav-button"><i class="ph-fill ph-users"></i> <span>Contact Forms</span></button>
+                <button id="nav-consultations" class="nav-button"><i class="ph-fill ph-first-aid-kit"></i> <span>Consultations</span></button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-button" class="nav-button"><i class="ph-fill ph-sign-out"></i> <span>Logout</span></button>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <section id="chat-section" class="content-section active">
+                <div class="conversations-panel glass-effect">
+                    <div class="conv-header">
+                        <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
+                        <h2 style="font-size: 28px;">Conversations</h2>
+                    </div>
+                    <ul id="conversations-list"></ul>
+                </div>
+                <div id="chat-windows-container"></div>
+                <div class="chat-area-mobile"></div>
+            </section>
+
+            <section id="contacts-section" class="content-section">
+                <div class="submissions-page">
+                    <div class="submissions-header">
+                        <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
+                        <h2>Contact Form Submissions</h2>
+                    </div>
+                    <div id="contact-cards-container" class="cards-container"></div>
+                </div>
+            </section>
+            <section id="consultations-section" class="content-section">
+                <div class="submissions-page">
+                    <div class="submissions-header">
+                        <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
+                        <h2>Consultation Requests</h2>
+                    </div>
+                    <div id="consultation-cards-container" class="cards-container"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <div id="image-modal" class="hidden"><img id="modal-image-content" src=""></div>
+
+    <template id="chat-window-template">
+        <div class="chat-window glass-effect">
+            <div class="chat-window-header">
+                <div class="chat-header-title">
+                    <span class="chat-identifier"></span>
+                    <button class="rename-chat-btn"><i class="ph-bold ph-pencil-simple"></i></button>
+                </div>
+                <button class="close-btn"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="messages-container"></div>
+            <div class="chat-input-area">
+                <input type="file" class="file-input hidden" accept="image/*">
+                <button class="attach-file-btn chat-button" title="Attach image"><i class="ph-bold ph-paperclip"></i></button>
+                <input type="text" class="admin-chat-input" placeholder="Type your message..." disabled>
+                <button class="admin-send-btn chat-button" title="Send message" disabled><i class="ph-bold ph-paper-plane-tilt"></i></button>
+            </div>
+        </div>
+    </template>
+    
+    <template id="mobile-chat-template">
+         <div class="chat-window-header glass-effect" style="border-radius:0; cursor:default;">
+            <button class="mobile-back-button"><i class="ph-bold ph-arrow-left"></i></button>
+             <div class="chat-header-title">
+                <span class="chat-identifier"></span>
+                <button class="rename-chat-btn"><i class="ph-bold ph-pencil-simple"></i></button>
+            </div>
+        </div>
+        <div class="messages-container"></div>
+        <div class="chat-input-area glass-effect" style="border-radius:0;">
+            <input type="file" class="file-input hidden" accept="image/*">
+            <button class="attach-file-btn chat-button" title="Attach image"><i class="ph-bold ph-paperclip"></i></button>
+            <input type="text" class="admin-chat-input" placeholder="Type your message..." disabled>
+            <button class="admin-send-btn chat-button" title="Send message" disabled><i class="ph-bold ph-paper-plane-tilt"></i></button>
+        </div>
+    </template>
+
+    <script>
+        // Реєстрація Service Worker
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js', { scope: '/admin-panel/' })
+              .then(registration => {
+                console.log('PWA ServiceWorker registration successful with scope: ', registration.scope);
+              })
+              .catch(err => {
+                console.log('PWA ServiceWorker registration failed: ', err);
+              });
+          });
+        }
+
+        // Основний скрипт вашої адмінки
+        document.addEventListener('DOMContentLoaded', function() {
+            // Supabase Client Setup
+            const supabaseUrl = 'https://iwjlqxjgseryydgzginy.supabase.co';
+            const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml3amxxeGpnc2VyeXlkZ3pnaW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMDg2OTMsImV4cCI6MjA2OTc4NDY5M30.tQls7TsuoKJCQfx6xn_MKV-nI5nsDSQnXFGVrQfV1lY';
+            const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+            // Sound Notification
+            const notificationSound = new Audio('https://nycglassandwindowrepair.com/wp-content/uploads/2025/10/get_massege.mp3');
+
+            // DOM Elements
+            const loginContainer = document.getElementById('supabase-login-container');
+            const loginForm = document.getElementById('supabase-login-form');
+            const dashboard = document.getElementById('dashboard-container');
+            const logoutButton = document.getElementById('logout-button');
+            const navButtons = document.querySelectorAll('.nav-button');
+            const contentSections = document.querySelectorAll('.content-section');
+            const navChatButton = document.getElementById('nav-chat');
+            const sidebar = document.querySelector('.sidebar');
+            const mobileMenuButtons = document.querySelectorAll('.mobile-menu-button');
+            const conversationsList = document.getElementById('conversations-list');
+            const chatWindowsContainer = document.getElementById('chat-windows-container');
+            const chatWindowTemplate = document.getElementById('chat-window-template');
+            const mobileChatArea = document.querySelector('.chat-area-mobile');
+            const mobileChatTemplate = document.getElementById('mobile-chat-template');
+            const contactCardsContainer = document.getElementById('contact-cards-container');
+            const consultationCardsContainer = document.getElementById('consultation-cards-container');
+            const imageModal = document.getElementById('image-modal');
+            const modalImage = document.getElementById('modal-image-content');
+            
+            let messageSubscriptions = {};
+            let activeWindowZIndex = 10;
+            
+            let isAudioUnlocked = false;
+            const unlockAudio = () => {
+                if (isAudioUnlocked) return;
+                notificationSound.volume = 0;
+                notificationSound.play().catch(() => {});
+                notificationSound.volume = 1;
+                isAudioUnlocked = true;
+                console.log('Audio context unlocked.');
+            };
+
+            const checkUser = async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    loginContainer.classList.add('hidden');
+                    dashboard.classList.remove('hidden');
+                    initializeDashboard();
+                } else {
+                    loginContainer.classList.remove('hidden');
+                    dashboard.classList.add('hidden');
+                }
+            };
+
+            const initializeDashboard = () => {
+                loadConversations();
+                loadContactForms();
+                loadConsultations();
+                listenForGlobalMessages();
+            };
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const { error } = await supabase.auth.signInWithPassword({
+                    email: e.target.email.value,
+                    password: e.target.password.value
+                });
+                if (error) {
+                    alert(error.message);
+                } else {
+                    unlockAudio();
+                    checkUser();
+                }
+            });
+            logoutButton.addEventListener('click', async () => { await supabase.auth.signOut(); checkUser(); });
+
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    if (button.id === 'logout-button') return;
+                    navButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    const targetSectionId = button.id.replace('nav-', '') + '-section';
+                    document.getElementById(targetSectionId).classList.add('active');
+                    sidebar.classList.remove('open');
+                });
+            });
+
+            mobileMenuButtons.forEach(btn => btn.addEventListener('click', () => sidebar.classList.toggle('open')));
+
+            const listenForGlobalMessages = () => {
+                supabase.channel('public:messages')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                        const newMessage = payload.new;
+                        if (newMessage.sender === 'user') {
+                            if (isAudioUnlocked) {
+                                 try {
+                                    notificationSound.currentTime = 0;
+                                    notificationSound.play();
+                                } catch (e) { console.warn("Could not play sound.", e); }
+                            }
+                            const openWindow = document.querySelector(`.chat-window[data-conv-id="${newMessage.conversation_id}"]`);
+                            const isMobileChatOpen = mobileChatArea.dataset.convId === String(newMessage.conversation_id);
+                            if (!openWindow && !isMobileChatOpen) {
+                                 updateUnreadBadge(newMessage.conversation_id, true);
+                            }
+                        }
+                    }).subscribe();
+            };
+
+            const loadConversations = async () => {
+                const { data, error } = await supabase.rpc('get_conversations_with_unread_count');
+                if (error) { console.error('Error loading conversations:', error); return; }
+                
+                let listHtml = '';
+                if (data.length === 0) {
+                    listHtml = `<p style="padding: 20px; color: var(--text-medium);">No chats yet.</p>`;
+                } else {
+                    data.forEach(conv => {
+                        const badgeHtml = conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count}</span>` : '';
+                        listHtml += `
+                            <li class="conversation-item" data-id="${conv.id}" data-identifier="${conv.user_identifier}">
+                                <p class="conv-name">${conv.user_identifier}</p>
+                                <div class="actions">
+                                    ${badgeHtml}
+                                    <button class="delete-chat-btn" title="Delete chat"><i class="ph-bold ph-trash"></i></button>
+                                </div>
+                            </li>`;
+                    });
+                }
+                conversationsList.innerHTML = listHtml;
+                updateGlobalChatIndicator();
+            };
+            
+            conversationsList.addEventListener('click', (e) => {
+                unlockAudio();
+                const deleteBtn = e.target.closest('.delete-chat-btn');
+                if (deleteBtn) {
+                    const convItem = e.target.closest('.conversation-item');
+                    const convId = convItem.dataset.id;
+                    deleteConversation(convId);
+                    return;
+                }
+
+                const convItem = e.target.closest('.conversation-item');
+                if (convItem) {
+                    document.querySelectorAll('.conversation-item').forEach(item => item.classList.remove('active'));
+                    convItem.classList.add('active');
+                    const convId = convItem.dataset.id;
+                    const identifier = convItem.dataset.identifier;
+                    selectConversation(convId, identifier);
+                }
+            });
+
+            const selectConversation = async (convId, identifier) => {
+                const commonSetup = async (parent, id, ident) => {
+                    parent.querySelector('.chat-identifier').textContent = ident;
+                    await loadMessagesIntoContainer(id, parent.querySelector('.messages-container'));
+                    setupChatInputHandlers(parent, id);
+                    setupRenameHandler(parent, id);
+                };
+
+                if (window.innerWidth <= 768) {
+                    mobileChatArea.classList.add('open');
+                    mobileChatArea.dataset.convId = convId;
+                    mobileChatArea.innerHTML = ''; 
+                    const mobileTemplate = mobileChatTemplate.content.cloneNode(true);
+                    mobileChatArea.appendChild(mobileTemplate);
+                    
+                    mobileChatArea.querySelector('.mobile-back-button').onclick = () => {
+                        mobileChatArea.classList.remove('open');
+                        mobileChatArea.dataset.convId = null;
+                    }
+                    await commonSetup(mobileChatArea, convId, identifier);
+                } else {
+                    let chatWindow = document.querySelector(`.chat-window[data-conv-id="${convId}"]`);
+                    if (chatWindow) {
+                        chatWindow.style.zIndex = ++activeWindowZIndex;
+                    } else {
+                        chatWindow = chatWindowTemplate.content.cloneNode(true).firstElementChild;
+                        chatWindow.dataset.convId = convId;
+                        chatWindow.style.zIndex = ++activeWindowZIndex;
+                        const x = Math.floor(Math.random() * (chatWindowsContainer.offsetWidth - 450));
+                        const y = Math.floor(Math.random() * (chatWindowsContainer.offsetHeight - 600));
+                        chatWindow.style.left = `${Math.max(0, x)}px`;
+                        chatWindow.style.top = `${Math.max(0, y)}px`;
+                        chatWindowsContainer.appendChild(chatWindow);
+
+                        makeDraggable(chatWindow);
+                        await commonSetup(chatWindow, convId, identifier);
+                        
+                        chatWindow.querySelector('.close-btn').addEventListener('click', () => {
+                            chatWindow.remove();
+                            if(messageSubscriptions[convId]) {
+                                supabase.removeChannel(messageSubscriptions[convId]);
+                                delete messageSubscriptions[convId];
+                            }
+                        });
+                    }
+                }
+                
+                await supabase.from('messages').update({ is_read: true }).match({ conversation_id: convId, sender: 'user' });
+                const badge = conversationsList.querySelector(`[data-id="${convId}"] .unread-badge`);
+                if (badge) badge.remove();
+                updateGlobalChatIndicator();
+                subscribeToMessages(convId);
+            };
+            
+            const loadMessagesIntoContainer = async (convId, container) => {
+                container.innerHTML = '<div class="spinner" style="margin: auto;"></div>';
+                const { data: messages, error } = await supabase.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
+                container.innerHTML = '';
+                if (error) { console.error('Error loading messages:', error); return; }
+                messages.forEach(message => addMessageToUI(message, container));
+                scrollToBottom(container);
+            };
+
+            const setupChatInputHandlers = (parent, convId) => {
+                const adminChatInput = parent.querySelector('.admin-chat-input');
+                const adminSendBtn = parent.querySelector('.admin-send-btn');
+                const attachFileBtn = parent.querySelector('.attach-file-btn');
+                const fileInput = parent.querySelector('.file-input');
+
+                adminChatInput.disabled = false;
+                adminSendBtn.disabled = false;
+
+                const sendTextMessage = async () => {
+                    const content = adminChatInput.value.trim();
+                    if (content === '') return;
+                    const { error } = await supabase.from('messages').insert({ content, conversation_id: convId, sender: 'admin', message_type: 'text' });
+                    if (error) console.error('Error sending message:', error);
+                    else adminChatInput.value = '';
+                };
+
+                adminSendBtn.onclick = sendTextMessage;
+                adminChatInput.onkeypress = (e) => { if (e.key === 'Enter') sendTextMessage(); };
+                
+                attachFileBtn.onclick = () => fileInput.click();
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files[0]; if (!file) return;
+                    const originalBtnContent = attachFileBtn.innerHTML;
+                    attachFileBtn.innerHTML = `<div class="spinner"></div>`; attachFileBtn.disabled = true;
+                    const filePath = `${convId}/${Date.now()}_${file.name}`;
+                    const { error: uploadError } = await supabase.storage.from('chat_uploads').upload(filePath, file);
+                    if (uploadError) { console.error('Upload Error:', uploadError); alert('Failed to upload image.'); }
+                    else {
+                        const { data } = supabase.storage.from('chat_uploads').getPublicUrl(filePath);
+                        if (data.publicUrl) {
+                            await supabase.from('messages').insert({ content: data.publicUrl, conversation_id: convId, sender: 'admin', message_type: 'image' });
+                        }
+                    }
+                    attachFileBtn.innerHTML = originalBtnContent; attachFileBtn.disabled = false; e.target.value = null;
+                };
+            };
+
+            const addMessageToUI = (message, specificContainer = null) => {
+                let container;
+                if (specificContainer) {
+                    container = specificContainer;
+                } else if (window.innerWidth <= 768) {
+                    if (mobileChatArea.dataset.convId === String(message.conversation_id)) {
+                        container = mobileChatArea.querySelector('.messages-container');
+                    }
+                } else {
+                     const chatWindow = document.querySelector(`.chat-window[data-conv-id="${message.conversation_id}"]`);
+                     if (chatWindow) container = chatWindow.querySelector('.messages-container');
+                }
+                
+                if (!container) return;
+
+                const row = document.createElement('div'); row.className = `message-row ${message.sender}`;
+                const avatar = document.createElement('div'); avatar.className = `avatar ${message.sender}`;
+                avatar.textContent = message.sender === 'admin' ? 'A' : 'U';
+                const bubble = document.createElement('div'); bubble.className = `message-bubble ${message.sender}`;
+                const contentEl = document.createElement('div'); contentEl.className = 'message-content';
+                if (message.message_type === 'image') {
+                    const img = document.createElement('img'); img.src = message.content;
+                    img.addEventListener('click', () => openImageModal(message.content));
+                    contentEl.appendChild(img);
+                } else { contentEl.textContent = message.content; }
+                const timestamp = document.createElement('div'); timestamp.className = 'timestamp';
+                timestamp.textContent = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                bubble.appendChild(contentEl); bubble.appendChild(timestamp);
+                row.appendChild(avatar); row.appendChild(bubble);
+                container.appendChild(row);
+                scrollToBottom(container);
+            };
+            
+            const scrollToBottom = (container) => { setTimeout(() => { container.scrollTop = container.scrollHeight; }, 100); };
+            
+            const subscribeToMessages = (convId) => {
+                if (messageSubscriptions[convId]) return;
+                messageSubscriptions[convId] = supabase.channel(`messages_${convId}`)
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` }, payload => {
+                        addMessageToUI(payload.new);
+                    }).subscribe();
+            };
+
+            const updateUnreadBadge = (conversationId, increment) => {
+                const convItem = conversationsList.querySelector(`[data-id="${conversationId}"]`);
+                if (!convItem) { loadConversations(); return; }
+                let badge = convItem.querySelector('.unread-badge');
+                if (increment) {
+                    if (badge) { badge.textContent = parseInt(badge.textContent) + 1; }
+                    else {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'unread-badge'; newBadge.textContent = '1';
+                        convItem.querySelector('.actions').insertBefore(newBadge, convItem.querySelector('.delete-chat-btn'));
+                    }
+                }
+                updateGlobalChatIndicator();
+            };
+
+            const updateGlobalChatIndicator = () => {
+                const anyUnread = conversationsList.querySelector('.unread-badge');
+                if (anyUnread) { navChatButton.classList.add('has-unread'); }
+                else { navChatButton.classList.remove('has-unread'); }
+            };
+            
+            const setupRenameHandler = (parent, convId) => {
+                const titleContainer = parent.querySelector('.chat-header-title');
+                const renameBtn = titleContainer.querySelector('.rename-chat-btn');
+                const identifierSpan = titleContainer.querySelector('.chat-identifier');
+
+                renameBtn.onclick = () => {
+                    const currentName = identifierSpan.textContent;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentName;
+                    input.className = 'chat-identifier-input';
+                    
+                    identifierSpan.replaceWith(input);
+                    input.focus();
+                    input.select();
+
+                    const saveName = async () => {
+                        const newName = input.value.trim();
+                        if (newName && newName !== currentName) {
+                            await renameConversation(convId, newName);
+                        }
+                        const newSpan = document.createElement('span');
+                        newSpan.className = 'chat-identifier';
+                        newSpan.textContent = newName || currentName;
+                        input.replaceWith(newSpan);
+                    };
+
+                    input.onblur = saveName;
+                    input.onkeydown = (e) => {
+                        if (e.key === 'Enter') input.blur();
+                        if (e.key === 'Escape') {
+                            input.value = currentName;
+                            input.blur();
+                        }
+                    };
+                };
+            };
+
+            const renameConversation = async (convId, newName) => {
+                const { error } = await supabase.from('conversations').update({ user_identifier: newName }).eq('id', convId);
+                if (error) {
+                    alert('Error renaming conversation.');
+                    console.error(error);
+                } else {
+                    const convListItem = conversationsList.querySelector(`[data-id="${convId}"]`);
+                    if (convListItem) {
+                        convListItem.querySelector('.conv-name').textContent = newName;
+                        convListItem.dataset.identifier = newName;
+                    }
+                    const openChatWindow = document.querySelector(`.chat-window[data-conv-id="${convId}"]`);
+                    if (openChatWindow) {
+                        openChatWindow.querySelector('.chat-identifier').textContent = newName;
+                    }
+                    if (mobileChatArea.dataset.convId === convId) {
+                         mobileChatArea.querySelector('.chat-identifier').textContent = newName;
+                    }
+                }
+            };
+            
+            const deleteConversation = async (convId) => {
+                if (!confirm('Are you sure you want to delete this chat and all its messages? This action cannot be undone.')) {
+                    return;
+                }
+                
+                const { error: msgError } = await supabase.from('messages').delete().eq('conversation_id', convId);
+                if (msgError) {
+                    alert('Error deleting messages.');
+                    console.error(msgError);
+                    return;
+                }
+
+                const { error: convError } = await supabase.from('conversations').delete().eq('id', convId);
+                if (convError) {
+                    alert('Error deleting conversation.');
+                    console.error(convError);
+                    return;
+                }
+                
+                const openChatWindow = document.querySelector(`.chat-window[data-conv-id="${convId}"]`);
+                if (openChatWindow) {
+                    openChatWindow.remove();
+                }
+                if (mobileChatArea.dataset.convId === String(convId)) {
+                    mobileChatArea.classList.remove('open');
+                    mobileChatArea.innerHTML = '';
+                }
+                
+                loadConversations();
+            };
+            
+            const loadData = async (tableName, container) => {
+                const { data, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
+                if (error) { console.error(`Error fetching ${tableName}:`, error); container.innerHTML = '<p>Error loading data.</p>'; return; }
+                renderCards(data, container, tableName);
+            };
+            const loadContactForms = () => loadData('contacts', contactCardsContainer);
+            const loadConsultations = () => loadData('consultations', consultationCardsContainer);
+
+            const renderCards = (data, container, tableName) => {
+                if (data.length === 0) { container.innerHTML = `<p style="color: var(--text-medium);">No submissions yet.</p>`; return; }
+                let cardsHtml = '';
+                data.forEach(item => {
+                    let fieldsHtml = '';
+                    for (const key in item) {
+                        if (key !== 'id' && key !== 'created_at' && key !== 'is_read') {
+                            fieldsHtml += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${item[key] || 'N/A'}</p>`;
+                        }
+                    }
+                    cardsHtml += `
+                        <div class="submission-card glass-effect">
+                            <div class="card-header">
+                                <h3>${item.name || 'Submission'}</h3>
+                                <span class="timestamp">${new Date(item.created_at).toLocaleString()}</span>
+                            </div>
+                            <div class="card-body">${fieldsHtml}</div>
+                            <div class="card-footer">
+                                <button class="card-button delete-button" data-id="${item.id}" data-table="${tableName}">Delete</button>
+                            </div>
+                        </div>`;
+                });
+                container.innerHTML = cardsHtml;
+            };
+            
+            document.querySelector('.main-content').addEventListener('click', async (e) => {
+                const deleteButton = e.target.closest('.delete-button');
+                if (deleteButton) {
+                    if (!confirm("Are you sure?")) return;
+                    const { id, table } = deleteButton.dataset;
+                    const { error } = await supabase.from(table).delete().eq('id', id);
+                    if (error) { alert('Error deleting item.'); }
+                    else {
+                        if (table === 'contacts') loadContactForms();
+                        if (table === 'consultations') loadConsultations();
+                    }
+                }
+            });
+            
+            function openImageModal(src) { modalImage.src = src; imageModal.classList.remove('hidden'); }
+            imageModal.addEventListener('click', () => { imageModal.classList.add('hidden'); });
+
+            function makeDraggable(element) {
+                let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                const header = element.querySelector(".chat-window-header");
+                
+                if (header) {
+                    header.onmousedown = dragMouseDown;
+                }
+
+                function dragMouseDown(e) {
+                    if (e.target.closest('button') || e.target.closest('input')) { return; }
+                    e.preventDefault();
+                    element.style.zIndex = ++activeWindowZIndex;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    document.onmouseup = closeDragElement;
+                    document.onmousemove = elementDrag;
+                }
+
+                function elementDrag(e) {
+                    e.preventDefault();
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    let newTop = element.offsetTop - pos2;
+                    let newLeft = element.offsetLeft - pos1;
+                    const containerRect = chatWindowsContainer.getBoundingClientRect();
+                    const elRect = element.getBoundingClientRect();
+                    if (newLeft < 0) newLeft = 0;
+                    if (newTop < 0) newTop = 0;
+                    if (newLeft + elRect.width > containerRect.width) newLeft = containerRect.width - elRect.width;
+                    if (newTop + elRect.height > containerRect.height) newTop = containerRect.height - elRect.height;
+                    element.style.top = newTop + "px";
+                    element.style.left = newLeft + "px";
+                }
+
+                function closeDragElement() {
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                }
+            }
+            checkUser();
+        });
+    </script>
+</body>
+</html>

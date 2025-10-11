@@ -1,0 +1,21 @@
+{
+  "name": "Admin Panel",
+  "short_name": "Admin",
+  "start_url": "/supabase-admin-dashboard/", 
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#6D28D9",
+  "description": "Admin panel for production management.",
+  "icons": [
+    {
+      "src": "/pwa-admin/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-admin/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
