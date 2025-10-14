@@ -7,7 +7,7 @@
 
     <link rel="manifest" href="/pwa-admin/manifest.json">
     <meta name="theme-color" content="#6D28D9">
-        <link rel="apple-touch-icon" href="/pwa-admin/icons/apple-touch-icon-180x180.png">
+    <link rel="apple-touch-icon" href="/pwa-admin/icons/apple-touch-icon-180x180.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -333,6 +333,7 @@
         // Реєстрація Service Worker
         if ('serviceWorker' in navigator) {
           window.addEventListener('load', () => {
+            // FIX: Змінюємо scope на '/', оскільки адмінка тепер в корені субдомену
             navigator.serviceWorker.register('/sw.js', { scope: '/' })
               .then(reg => console.log('SW registration successful:', reg.scope))
               .catch(err => console.log('SW registration failed:', err));
@@ -787,7 +788,7 @@
                     .subscribe();
             }
 
-            const VAPID_PUBLIC_KEY = 'ВАШ_VAPID_PUBLIC_KEY_ТУТ';
+            const VAPID_PUBLIC_KEY = 'BDNvOOoPumPagDJPC9n617xe01mEnY_8KRPj2LoxrsTN0-MT9XAw6YHwcGPs5rpFUfrqPUko5G9RXds66XgJYqE';
 
             function urlBase64ToUint8Array(base64String) {
                 const padding = '='.repeat((4 - base64String.length % 4) % 4);
