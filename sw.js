@@ -1,4 +1,4 @@
-const CACHE_NAME = 'admin-panel-v2'; // Оновлюємо версію кешу
+const CACHE_NAME = 'admin-panel-v2';
 
 const URLS_TO_CACHE = [
   '/',
