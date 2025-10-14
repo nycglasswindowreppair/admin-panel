@@ -1,23 +1,17 @@
-const CACHE_NAME = 'admin-panel-v1';
+const CACHE_NAME = 'admin-panel-v2'; // Оновлюємо версію кешу
 
-// Додано '/sw.js' до списку кешування
 const URLS_TO_CACHE = [
-  '/supabase-admin-dashboard/',
+  '/',
   '/pwa-admin/manifest.json',
   '/pwa-admin/icons/icon-192x192.png',
   '/pwa-admin/icons/icon-512x512.png',
-  '/sw.js' 
+  '/sw.js'
 ];
 
 self.addEventListener('install', (event) => {
-  // Пропускаємо очікування, щоб новий Service Worker активувався швидше
-  self.skipWaiting(); 
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache and caching assets');
-        return cache.addAll(URLS_TO_CACHE);
-      })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
   );
 });
 
@@ -25,27 +19,29 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
+        cacheNames.filter(name => name !== CACHE_NAME).map(name => caches.delete(name))
       );
     })
   );
-  // Змушує активний SW взяти контроль над сторінкою негайно
-  return self.clients.claim(); 
+  return self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // ВИДАЛЕНО НЕПОТРІБНУ І ШКІДЛИВУ ПЕРЕВІРКУ.
-  // Тепер SW буде обробляти всі запити в межах свого 'scope'.
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Якщо ресурс є в кеші, віддаємо його. Інакше - робимо запит до мережі.
-        return response || fetch(event.request);
-      })
+    caches.match(event.request).then((response) => response || fetch(event.request))
+  );
+});
+
+// NEW: Обробник Push-сповіщень
+self.addEventListener('push', (event) => {
+  const data = event.data.json();
+  const options = {
+    body: data.body,
+    icon: '/pwa-admin/icons/icon-192x192.png',
+    badge: '/pwa-admin/icons/icon-192x192.png'
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
   );
 });

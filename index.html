@@ -7,7 +7,8 @@
 
     <link rel="manifest" href="/pwa-admin/manifest.json">
     <meta name="theme-color" content="#6D28D9">
-    
+        <link rel="apple-touch-icon" href="/pwa-admin/icons/apple-touch-icon-180x180.png">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -332,24 +333,16 @@
         // Реєстрація Service Worker
         if ('serviceWorker' in navigator) {
           window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js', { scope: '/admin-panel/' })
-              .then(registration => {
-                console.log('PWA ServiceWorker registration successful with scope: ', registration.scope);
-              })
-              .catch(err => {
-                console.log('PWA ServiceWorker registration failed: ', err);
-              });
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .then(reg => console.log('SW registration successful:', reg.scope))
+              .catch(err => console.log('SW registration failed:', err));
           });
         }
 
-        // Основний скрипт вашої адмінки
         document.addEventListener('DOMContentLoaded', function() {
-            // Supabase Client Setup
             const supabaseUrl = 'https://iwjlqxjgseryydgzginy.supabase.co';
             const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml3amxxeGpnc2VyeXlkZ3pnaW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMDg2OTMsImV4cCI6MjA2OTc4NDY5M30.tQls7TsuoKJCQfx6xn_MKV-nI5nsDSQnXFGVrQfV1lY';
             const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-            // Sound Notification
             const notificationSound = new Audio('https://nycglassandwindowrepair.com/wp-content/uploads/2025/10/get_massege.mp3');
 
             // DOM Elements
@@ -360,6 +353,8 @@
             const navButtons = document.querySelectorAll('.nav-button');
             const contentSections = document.querySelectorAll('.content-section');
             const navChatButton = document.getElementById('nav-chat');
+            const navContactsButton = document.getElementById('nav-contacts');
+            const navConsultationsButton = document.getElementById('nav-consultations');
             const sidebar = document.querySelector('.sidebar');
             const mobileMenuButtons = document.querySelectorAll('.mobile-menu-button');
             const conversationsList = document.getElementById('conversations-list');
@@ -374,8 +369,8 @@
             
             let messageSubscriptions = {};
             let activeWindowZIndex = 10;
-            
             let isAudioUnlocked = false;
+
             const unlockAudio = () => {
                 if (isAudioUnlocked) return;
                 notificationSound.volume = 0;
@@ -402,6 +397,13 @@
                 loadContactForms();
                 loadConsultations();
                 listenForGlobalMessages();
+                
+                checkUnreadSubmissions('contacts', navContactsButton);
+                checkUnreadSubmissions('consultations', navConsultationsButton);
+                listenForNewSubmissions('contacts', navContactsButton);
+                listenForNewSubmissions('consultations', navConsultationsButton);
+                
+                initPushNotifications();
             };
 
             loginForm.addEventListener('submit', async (e) => {
@@ -428,6 +430,13 @@
                     const targetSectionId = button.id.replace('nav-', '') + '-section';
                     document.getElementById(targetSectionId).classList.add('active');
                     sidebar.classList.remove('open');
+                    
+                    if (button.id === 'nav-contacts') {
+                        markSubmissionsAsRead('contacts', navContactsButton);
+                    }
+                    if (button.id === 'nav-consultations') {
+                        markSubmissionsAsRead('consultations', navConsultationsButton);
+                    }
                 });
             });
 
@@ -752,6 +761,79 @@
                 loadConversations();
             };
             
+            async function checkUnreadSubmissions(tableName, navButton) {
+                const { count, error } = await supabase
+                    .from(tableName)
+                    .select('*', { count: 'exact', head: true })
+                    .eq('is_read', false);
+
+                if (error) { console.error(`Error checking unread ${tableName}:`, error); return; }
+                if (count > 0) navButton.classList.add('has-unread');
+                else navButton.classList.remove('has-unread');
+            }
+
+            async function markSubmissionsAsRead(tableName, navButton) {
+                const { error } = await supabase.from(tableName).update({ is_read: true }).eq('is_read', false);
+                if (error) { console.error(`Error marking ${tableName} as read:`, error); }
+                else { navButton.classList.remove('has-unread'); }
+            }
+            
+            function listenForNewSubmissions(tableName, navButton) {
+                 supabase.channel(`public:${tableName}`)
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: tableName }, payload => {
+                        navButton.classList.add('has-unread');
+                        if (isAudioUnlocked) { try { notificationSound.play(); } catch(e) {} }
+                    })
+                    .subscribe();
+            }
+
+            const VAPID_PUBLIC_KEY = 'ВАШ_VAPID_PUBLIC_KEY_ТУТ';
+
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            }
+
+            async function initPushNotifications() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    return console.warn('Push messaging is not supported');
+                }
+                
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    let subscription = await registration.pushManager.getSubscription();
+
+                    if (subscription === null) {
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                        });
+                        console.log('User is subscribed.');
+                        await saveSubscription(subscription);
+                    } else {
+                        console.log('User IS subscribed.');
+                        await saveSubscription(subscription);
+                    }
+                } catch (err) {
+                    console.error('Failed to subscribe the user: ', err);
+                }
+            }
+            
+            async function saveSubscription(subscription) {
+                 const { error } = await supabase
+                    .from('push_subscriptions')
+                    .upsert({ subscription: subscription }, { onConflict: 'subscription' });
+
+                if (error) console.error('Error saving subscription:', error);
+                else console.log('Subscription saved successfully.');
+            }
+
             const loadData = async (tableName, container) => {
                 const { data, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
                 if (error) { console.error(`Error fetching ${tableName}:`, error); container.innerHTML = '<p>Error loading data.</p>'; return; }
