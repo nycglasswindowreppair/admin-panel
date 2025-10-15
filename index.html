@@ -333,7 +333,6 @@
         // Реєстрація Service Worker
         if ('serviceWorker' in navigator) {
           window.addEventListener('load', () => {
-            // FIX: Змінюємо scope на '/', оскільки адмінка тепер в корені субдомену
             navigator.serviceWorker.register('/sw.js', { scope: '/' })
               .then(reg => console.log('SW registration successful:', reg.scope))
               .catch(err => console.log('SW registration failed:', err));
@@ -372,6 +371,35 @@
             let activeWindowZIndex = 10;
             let isAudioUnlocked = false;
 
+            // ✅ ПОЧАТОК ДОДАНОГО КОДУ
+            const checkUrlForChat = () => {
+                const hash = window.location.hash; // Отримуємо хеш, наприклад, #chat=uuid-12345
+                if (hash.startsWith('#chat=')) {
+                    const convId = hash.substring(6); // Вирізаємо "#chat="
+                    
+                    // Перемикаємось на вкладку чату, якщо вона не активна
+                    if (!navChatButton.classList.contains('active')) {
+                        navChatButton.click();
+                    }
+
+                    const convItem = conversationsList.querySelector(`[data-id="${convId}"]`);
+                    if (convItem) {
+                        // Якщо елемент розмови існує, симулюємо клік по ньому
+                        convItem.click();
+                    } else {
+                        // Якщо чат ще не завантажений, пробуємо ще раз через секунду
+                        // Це допомагає, якщо дані завантажуються повільно
+                        setTimeout(() => {
+                            const convItemAfterLoad = conversationsList.querySelector(`[data-id="${convId}"]`);
+                            if (convItemAfterLoad) {
+                                convItemAfterLoad.click();
+                            }
+                        }, 1200);
+                    }
+                }
+            };
+            // ✅ КІНЕЦЬ ДОДАНОГО КОДУ
+
             const unlockAudio = () => {
                 if (isAudioUnlocked) return;
                 notificationSound.volume = 0;
@@ -394,7 +422,10 @@
             };
 
             const initializeDashboard = () => {
-                loadConversations();
+                // ✅ ЗМІНЕНО: Додано .then() для виклику функції ПІСЛЯ завантаження
+                loadConversations().then(() => {
+                    checkUrlForChat();
+                });
                 loadContactForms();
                 loadConsultations();
                 listenForGlobalMessages();
