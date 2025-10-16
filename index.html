@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Admin Panel</title>
-
+    <title> Admin Panel for NYC</title>
+    <link rel="icon" href="pwa-admin/icons/icon-512x512.png" type="image/svg+xml">
     <link rel="manifest" href="/pwa-admin/manifest.json">
     <meta name="theme-color" content="#6D28D9">
     <link rel="apple-touch-icon" href="/pwa-admin/icons/apple-touch-icon-180x180.png">
@@ -24,6 +24,7 @@
             --glass-bg: rgba(31, 41, 55, 0.6);
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
             --glass-blur: 10px;
+            --unread-highlight: #A78BFA; /* ✅ Новий колір для індикатора */
         }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -183,21 +184,41 @@
         .submissions-header {
             padding: 20px 30px; border-bottom: 1px solid var(--border-color);
             background-color: var(--glass-bg); flex-shrink: 0;
-            display: flex; align-items: center; gap: 10px; margin: 10px; border-radius: 16px;
+            display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 10px; border-radius: 16px;
         }
         .submissions-header h2 { margin: 0; font-size: 1.5rem; }
+        /* ✅ Нові стилі для фільтрів */
+        .filter-buttons { display: flex; gap: 8px; }
+        .filter-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: var(--text-medium);
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: 600;
+        }
+        .filter-btn.active { background-color: var(--primary-color); color: var(--text-light); border-color: var(--primary-color); }
+
         .cards-container {
             overflow-y: auto; padding: 20px; display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 20px; flex-grow: 1;
         }
-        .submission-card { padding: 20px; display: flex; flex-direction: column; animation: fadeIn 0.4s ease-out; }
+        .submission-card {
+            padding: 20px; display: flex; flex-direction: column; animation: fadeIn 0.4s ease-out;
+            position: relative; overflow: visible; transition: box-shadow 0.3s;
+        }
+        /* ✅ Новий стиль для непереглянутих карток */
+        .submission-card.unread {
+            background-color: #c5210b;
+            border-color: blanchedalmond;
+        }
+        
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
         .card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
         .card-body p { margin: 0 0 10px; word-break: break-word; }
         .card-body p > strong { color: var(--text-medium); }
         .card-footer { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
         .card-button { background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: var(--text-light); padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+        /* ✅ Нові стилі для кнопки "Mark as Read" */
+        .mark-read-button { background-color: rgba(139, 92, 246, 0.2); color: var(--primary-color); font-weight: 600; }
+        .mark-read-button:hover { background-color: rgba(139, 92, 246, 0.4); }
         .delete-button:hover { background-color: var(--danger-dark); }
         #image-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); cursor: pointer; animation: fadeIn 0.3s; }
         #image-modal img { max-width: 90%; max-height: 90%; box-shadow: 0 0 40px rgba(0,0,0,0.5); border-radius: 8px; }
@@ -273,17 +294,29 @@
             <section id="contacts-section" class="content-section">
                 <div class="submissions-page">
                     <div class="submissions-header">
-                        <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
-                        <h2>Contact Form Submissions</h2>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
+                            <h2>Contact Form Submissions</h2>
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-table="contacts" data-filter="all">All</button>
+                            <button class="filter-btn" data-table="contacts" data-filter="unread">Unread</button>
+                        </div>
                     </div>
                     <div id="contact-cards-container" class="cards-container"></div>
                 </div>
             </section>
             <section id="consultations-section" class="content-section">
-                <div class="submissions-page">
+                 <div class="submissions-page">
                     <div class="submissions-header">
-                        <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
-                        <h2>Consultation Requests</h2>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                             <button class="mobile-menu-button"><i class="ph-bold ph-list"></i></button>
+                            <h2>Consultation Requests</h2>
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-table="consultations" data-filter="all">All</button>
+                            <button class="filter-btn" data-table="consultations" data-filter="unread">Unread</button>
+                        </div>
                     </div>
                     <div id="consultation-cards-container" class="cards-container"></div>
                 </div>
@@ -370,25 +403,21 @@
             let messageSubscriptions = {};
             let activeWindowZIndex = 10;
             let isAudioUnlocked = false;
+            // ✅ Стан для фільтрів та кеш даних
+            let submissionFilters = { contacts: 'all', consultations: 'all' };
+            let submissionDataCache = { contacts: [], consultations: [] };
 
-            // ✅ ПОЧАТОК ДОДАНОГО КОДУ
             const checkUrlForChat = () => {
-                const hash = window.location.hash; // Отримуємо хеш, наприклад, #chat=uuid-12345
+                const hash = window.location.hash; 
                 if (hash.startsWith('#chat=')) {
-                    const convId = hash.substring(6); // Вирізаємо "#chat="
-                    
-                    // Перемикаємось на вкладку чату, якщо вона не активна
+                    const convId = hash.substring(6); 
                     if (!navChatButton.classList.contains('active')) {
                         navChatButton.click();
                     }
-
                     const convItem = conversationsList.querySelector(`[data-id="${convId}"]`);
                     if (convItem) {
-                        // Якщо елемент розмови існує, симулюємо клік по ньому
                         convItem.click();
                     } else {
-                        // Якщо чат ще не завантажений, пробуємо ще раз через секунду
-                        // Це допомагає, якщо дані завантажуються повільно
                         setTimeout(() => {
                             const convItemAfterLoad = conversationsList.querySelector(`[data-id="${convId}"]`);
                             if (convItemAfterLoad) {
@@ -398,7 +427,6 @@
                     }
                 }
             };
-            // ✅ КІНЕЦЬ ДОДАНОГО КОДУ
 
             const unlockAudio = () => {
                 if (isAudioUnlocked) return;
@@ -422,7 +450,6 @@
             };
 
             const initializeDashboard = () => {
-                // ✅ ЗМІНЕНО: Додано .then() для виклику функції ПІСЛЯ завантаження
                 loadConversations().then(() => {
                     checkUrlForChat();
                 });
@@ -432,8 +459,8 @@
                 
                 checkUnreadSubmissions('contacts', navContactsButton);
                 checkUnreadSubmissions('consultations', navConsultationsButton);
-                listenForNewSubmissions('contacts', navContactsButton);
-                listenForNewSubmissions('consultations', navConsultationsButton);
+                listenForNewSubmissions('contacts', navContactsButton, loadContactForms);
+                listenForNewSubmissions('consultations', navConsultationsButton, loadConsultations);
                 
                 initPushNotifications();
             };
@@ -462,13 +489,6 @@
                     const targetSectionId = button.id.replace('nav-', '') + '-section';
                     document.getElementById(targetSectionId).classList.add('active');
                     sidebar.classList.remove('open');
-                    
-                    if (button.id === 'nav-contacts') {
-                        markSubmissionsAsRead('contacts', navContactsButton);
-                    }
-                    if (button.id === 'nav-consultations') {
-                        markSubmissionsAsRead('consultations', navConsultationsButton);
-                    }
                 });
             });
 
@@ -803,18 +823,18 @@
                 if (count > 0) navButton.classList.add('has-unread');
                 else navButton.classList.remove('has-unread');
             }
-
-            async function markSubmissionsAsRead(tableName, navButton) {
-                const { error } = await supabase.from(tableName).update({ is_read: true }).eq('is_read', false);
-                if (error) { console.error(`Error marking ${tableName} as read:`, error); }
-                else { navButton.classList.remove('has-unread'); }
-            }
             
-            function listenForNewSubmissions(tableName, navButton) {
+            // ✅ ЗМІНЕНО: Ця функція більше не потрібна, бо логіка перенесена
+            // async function markSubmissionsAsRead(tableName, navButton) { ... }
+            
+            // ✅ ЗМІНЕНО: Функція тепер приймає callback для оновлення UI
+            function listenForNewSubmissions(tableName, navButton, refreshCallback) {
                  supabase.channel(`public:${tableName}`)
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: tableName }, payload => {
                         navButton.classList.add('has-unread');
                         if (isAudioUnlocked) { try { notificationSound.play(); } catch(e) {} }
+                        // Оновлюємо список, щоб показати нову картку
+                        if(refreshCallback) refreshCallback();
                     })
                     .subscribe();
             }
@@ -865,52 +885,112 @@
                 if (error) console.error('Error saving subscription:', error);
                 else console.log('Subscription saved successfully.');
             }
-
+            
+            // ✅ ЗМІНЕНО: Функція для завантаження і кешування даних
             const loadData = async (tableName, container) => {
                 const { data, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
                 if (error) { console.error(`Error fetching ${tableName}:`, error); container.innerHTML = '<p>Error loading data.</p>'; return; }
-                renderCards(data, container, tableName);
+                submissionDataCache[tableName] = data; // Зберігаємо дані в кеш
+                renderCards(tableName, container); // Відображаємо згідно з поточним фільтром
             };
             const loadContactForms = () => loadData('contacts', contactCardsContainer);
             const loadConsultations = () => loadData('consultations', consultationCardsContainer);
+            
+            // ✅ ЗМІНЕНО: Функція відображення тепер бере дані з кешу та фільтрує їх
+            const renderCards = (tableName, container) => {
+                const filter = submissionFilters[tableName];
+                const data = submissionDataCache[tableName];
+                
+                const filteredData = data.filter(item => {
+                    if (filter === 'unread') return !item.is_read;
+                    return true;
+                });
 
-            const renderCards = (data, container, tableName) => {
-                if (data.length === 0) { container.innerHTML = `<p style="color: var(--text-medium);">No submissions yet.</p>`; return; }
-                let cardsHtml = '';
-                data.forEach(item => {
+                if (filteredData.length === 0) { 
+                    container.innerHTML = `<p style="color: var(--text-medium); padding: 20px;">No submissions for this filter.</p>`; 
+                    return; 
+                }
+
+                container.innerHTML = filteredData.map(item => {
+                    const isUnread = !item.is_read;
                     let fieldsHtml = '';
                     for (const key in item) {
                         if (key !== 'id' && key !== 'created_at' && key !== 'is_read') {
                             fieldsHtml += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${item[key] || 'N/A'}</p>`;
                         }
                     }
-                    cardsHtml += `
-                        <div class="submission-card glass-effect">
+
+                    return `
+                   
+                   
+                        <div class="submission-card glass-effect ${isUnread ? 'unread' : ''}" data-id="${item.id}" data-table="${tableName}">
                             <div class="card-header">
                                 <h3>${item.name || 'Submission'}</h3>
                                 <span class="timestamp">${new Date(item.created_at).toLocaleString()}</span>
                             </div>
                             <div class="card-body">${fieldsHtml}</div>
                             <div class="card-footer">
+                                ${isUnread ? `<button class="card-button mark-read-button" data-id="${item.id}" data-table="${tableName}">✓ Mark as Read</button>` : ''}
                                 <button class="card-button delete-button" data-id="${item.id}" data-table="${tableName}">Delete</button>
                             </div>
                         </div>`;
-                });
-                container.innerHTML = cardsHtml;
+                }).join('');
             };
             
+            // ✅ ЗМІНЕНО: Головний обробник подій тепер обробляє і нові кнопки
             document.querySelector('.main-content').addEventListener('click', async (e) => {
                 const deleteButton = e.target.closest('.delete-button');
+                const markReadButton = e.target.closest('.mark-read-button');
+
                 if (deleteButton) {
                     if (!confirm("Are you sure?")) return;
                     const { id, table } = deleteButton.dataset;
                     const { error } = await supabase.from(table).delete().eq('id', id);
-                    if (error) { alert('Error deleting item.'); }
+                    if (error) { alert('Error deleting item.'); } 
                     else {
+                        // Оновлюємо дані після видалення
                         if (table === 'contacts') loadContactForms();
                         if (table === 'consultations') loadConsultations();
                     }
                 }
+
+                if (markReadButton) {
+                    const { id, table } = markReadButton.dataset;
+                    const { error } = await supabase.from(table).update({ is_read: true }).eq('id', id);
+                    if (error) {
+                        alert('Error marking as read.');
+                    } else {
+                        // Миттєве оновлення UI без перезавантаження даних з бази
+                        const card = markReadButton.closest('.submission-card');
+                        card.classList.remove('unread');
+                        markReadButton.remove();
+                        // Оновлюємо кеш
+                        const itemInCache = submissionDataCache[table].find(item => item.id == id);
+                        if(itemInCache) itemInCache.is_read = true;
+                        // Перевіряємо, чи залишились ще непереглянуті
+                        const hasUnread = submissionDataCache[table].some(item => !item.is_read);
+                        if (!hasUnread) {
+                            const navButton = table === 'contacts' ? navContactsButton : navConsultationsButton;
+                            navButton.classList.remove('has-unread');
+                        }
+                    }
+                }
+            });
+            
+            // ✅ НОВИЙ КОД: Обробник для кнопок-фільтрів
+            document.querySelectorAll('.filter-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const { table, filter } = button.dataset;
+                    submissionFilters[table] = filter; // Зберігаємо вибір фільтра
+
+                    // Оновлюємо активний стан кнопок
+                    document.querySelectorAll(`.filter-btn[data-table="${table}"]`).forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    // Перевідображаємо картки з новим фільтром
+                    const container = table === 'contacts' ? contactCardsContainer : consultationCardsContainer;
+                    renderCards(table, container);
+                });
             });
             
             function openImageModal(src) { modalImage.src = src; imageModal.classList.remove('hidden'); }

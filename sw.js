@@ -1,13 +1,11 @@
-const CACHE_NAME = 'admin-panel-v2';
-
+const CACHE_NAME = 'admin-panel-v3'; // <-- Змінили версію!
 const URLS_TO_CACHE = [
   '/',
-  '/pwa-admin/manifest.json',
-  '/pwa-admin/icons/icon-192x192.png',
-  '/pwa-admin/icons/icon-512x512.png',
+  '/manifest.json', // <-- Виправили шлях
+  '/icons/icon-192x192.png', // <-- Виправили шлях
+  '/icons/icon-512x512.png', // <-- Виправили шлях
   '/sw.js'
 ];
-
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
