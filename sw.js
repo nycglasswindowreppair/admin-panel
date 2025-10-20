@@ -1,15 +1,28 @@
-const CACHE_NAME = 'admin-panel-v3'; // <-- Змінили версію!
+const CACHE_NAME = 'admin-panel-v4'; 
+
 const URLS_TO_CACHE = [
-  '/',
-  '/manifest.json', // <-- Виправили шлях
-  '/icons/icon-192x192.png', // <-- Виправили шлях
-  '/icons/icon-512x512.png', // <-- Виправили шлях
-  '/sw.js'
+  '/', // Кешує головну сторінку index.html
+  '/sw.js', // Кешуємо сам service worker
+
+  // --- ✅ Правильні шляхи з префіксом /pwa-admin/ ---
+  '/pwa-admin/manifest.json',
+  '/pwa-admin/icons/icon-512x512.png',
+  '/pwa-admin/icons/apple-touch-icon-180x180.png',
+
+  // Додамо також інші іконки з вашого маніфесту для повноти кешу
+  '/pwa-admin/icons/maskable_icon_x192.png',
+  '/pwa-admin/icons/maskable_icon_x512.png'
 ];
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('Opened cache, adding files to cache...');
+      return cache.addAll(URLS_TO_CACHE);
+    }).catch(err => {
+      console.error('Failed to cache files during install:', err);
+    })
   );
 });
 
@@ -29,14 +42,13 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((response) => response || fetch(event.request))
   );
 });
-
-// NEW: Обробник Push-сповіщень
 self.addEventListener('push', (event) => {
   const data = event.data.json();
   const options = {
     body: data.body,
-    icon: '/pwa-admin/icons/icon-192x192.png',
-    badge: '/pwa-admin/icons/icon-192x192.png'
+    // ✅ Виправлено: використовуємо іконку з кешу
+    icon: '/pwa-admin/icons/maskable_icon_x192.png',
+    badge: '/pwa-admin/icons/maskable_icon_x192.png'
   };
 
   event.waitUntil(
